@@ -1,0 +1,731 @@
+
+#Practical 1
+#1. Upsampling and downsampling on Image/speech signal
+#2Fast Fourier Transform to compute DFT.
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import ndimage
+import cv2
+
+#Upsampling and downsampling on Image/speech Signal
+
+def upsample_image(image, factor):
+    return ndimage.zoom(image, factor)
+
+def downsample_image(image, factor):
+    return image[::factor, ::factor]
+
+img_path = "nature.jpg"
+original_imge=cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+upsampled_imge=upsample_image(original_imge, 2)
+downsampled_imge=downsample_image(original_imge,2)
+
+plt.figure(figsize=(20, 10))
+plt.subplot(1, 3, 1)
+plt.imshow(original_imge, cmap='gray')
+plt.title('Original Image')
+plt.subplot(1, 3, 2)
+plt.imshow(upsampled_imge, cmap='gray')
+plt.title('Upsampled Image')
+plt.subplot(1, 3, 3)
+plt.imshow(downsampled_imge, cmap='gray')
+plt.title('Downsampled Image')
+plt.tight_layout()
+plt.show()
+
+#2Fast Fourier Transform to compute DFT.
+
+image = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+
+dft = cv2.dft(np.float32(image), flags=cv2.DFT_COMPLEX_OUTPUT)
+dft_shift = np.fft.fftshift(dft)
+
+magnitude_spectrum = 20 * np.log(cv2.magnitude(dft_shift[:, :, 0], dft_shift[:, :, 1]))
+plt.figure(figsize=(12, 6))
+plt.subplot(1, 2, 1)
+plt.imshow(image, cmap='gray')
+plt.title('Original Image')
+plt.axis('off')
+
+plt.subplot(1, 2, 2)
+plt.imshow(magnitude_spectrum, cmap='gray')
+plt.title('Magnitude Spectrum (DFT)')
+plt.axis('off')
+
+plt.tight_layout()
+plt.show()
+
+
+
+
+********************************************
+
+#Practical 2
+#1.Create a triangle signal and plot a 3-period segment.
+#2.For a given signal, plot the segment and compute the correlation between them.
+
+import matplotlib.pyplot as plt
+from scipy import ndimage
+import cv2
+import numpy as np
+from scipy.signal import correlate
+
+def triangle_wave(periods, sampling_rate):
+    t = np.linspace(0, periods, int(periods * sampling_rate), endpoint=False)
+    return 2 * np.abs((t % 1) - 0.5) - 1
+
+sampling_rate = 1000
+periods = 3
+triangle_signal = triangle_wave(periods, sampling_rate)
+
+plt.figure(figsize=(10, 4))
+plt.plot(np.arange(0, periods, 1/sampling_rate), triangle_signal[:int(periods * sampling_rate)])
+plt.title('Triangle Wave - 3 Periods')
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude')
+plt.grid(True)
+plt.show()
+
+shifted_triangle_signal = np.roll(triangle_signal, int(sampling_rate / 2))
+plt.figure(figsize=(12, 4))
+plt.subplot(2, 1, 1)
+plt.plot(np.arange(0, periods, 1/sampling_rate), triangle_signal[:int(periods * sampling_rate)])
+plt.title('Original Triangle Signal')
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude')
+plt.grid(True)
+
+plt.subplot(2, 1, 2)
+plt.plot(np.arange(0, periods, 1/sampling_rate), shifted_triangle_signal[:int(periods * sampling_rate)])
+plt.title('Shifted Triangle Signal')
+plt.xlabel('Time (s)')
+plt.ylabel('Amplitude')
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+correlation_result=correlate(triangle_signal,shifted_triangle_signal,mode='full')
+
+plt.plot(np.arange(-len(triangle_signal)+1, len(triangle_signal)), correlation_result)
+plt.title('Cross-correlation between Original and Shifted Triangle Signals')
+plt.xlabel('Lag')
+plt.ylabel('Correlation')
+plt.grid(True)
+plt.show()
+
+
+
+
+********************************************
+
+#Practical 3
+#1.Convolution operation
+#2.Template Matching
+
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import ndimage
+import cv2
+
+def convolution(image, kernel):
+  return cv2.filter2D(image, -1, kernel)
+
+def template_matching(image, template):
+  result=cv2.matchTemplate(image, template, cv2.TM_CCOEFF_NORMED )
+  return result
+
+img_path='f1.jpg'
+img_path1='f11.png'
+image=cv2.imread(img_path,cv2.IMREAD_GRAYSCALE)
+template=cv2.imread(img_path1, cv2.IMREAD_GRAYSCALE)
+
+
+edge_detection_kernel=np.array([[-1,-1,-1],
+                                [-1,8,-1],
+                                [-1,-1,-1]], dtype=np.float32)
+
+convolved_image=convolution(image,edge_detection_kernel)
+
+matched_result=template_matching(image,template)
+
+plt.figure(figsize=(12,4))
+plt.subplot(1,3,1)
+plt.imshow(image,cmap='gray')
+plt.title('Original Image')
+
+plt.subplot(1,3,2)
+plt.imshow(convolved_image,cmap='gray')
+plt.title('Convolved Image')
+
+plt.subplot(1,3,3)
+plt.imshow(matched_result,cmap='jet')
+plt.title('Template Matching Result')
+plt.tight_layout()
+plt.show()
+
+
+
+
+
+********************************************
+#Practical 4
+#1.Log and Power-law transformations
+#2.Contrast adjustments
+#3.Histogram equalization
+#4.Thresholding, and halftoning operations
+
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import ndimage
+
+def log_transform(img_input, C):
+    epsilon = 1e-8
+    log_image = C * np.log(img_input + epsilon)
+    return log_image
+
+def power_law_T(img_input,gamma):
+  power_law_img = 1 * (img_input**gamma)
+  return power_law_img
+
+def contrast_st(img_input):
+  min_val = np.min(img_input)
+  max_val = np.max(img_input)
+  for i in range(img_input.shape[0]):
+    for pix in range(img_input.shape[1]):
+      img_input[i][pix] = ((img_input[i][pix] - min_val) / (max_val - min_val)) * 255
+    stretched_image = img_input
+    return stretched_image
+
+def calculate_histogram(image):
+  histrogramgram = np.zeros(256, dtype=int)
+  for row in range(image.shape[0]):
+    for pixel_value in range(image.shape[1]):
+      histrogramgram[ image[row][pixel_value] ] += 1
+  return histrogramgram
+
+def histogram_equalization(image):
+  # Calculate the histrogramgram
+  row,col = image.shape
+  histrogramgram = calculate_histogram(image)
+  # Calculate the cumulative distribution function (CDF)
+  pdf = histrogramgram / (row * col)
+  cdf = np.cumsum(pdf)
+  h_eq = cdf * 255
+  return h_eq
+
+def thresholding(image,t : int):
+  for i in range(image.shape[0]):
+    for pix in range(image.shape[1]):
+      if image[i][pix] <= t:
+        image[i][pix] = 0
+      else:
+        image[i][pix] = 255
+    return image
+
+def display_images_only(g_img, log_image, law_img, threshold_img, c_st, halftone_img):
+  plt.figure(figsize=(15, 10))
+  plt.subplot(3, 4, 1)
+  plt.imshow(g_img, cmap='gray')
+  plt.title('Gray org Image')
+  plt.axis('off')
+  plt.subplot(3, 4, 2)
+  plt.imshow(log_image, cmap='gray')
+  plt.title('Log Image')
+  plt.axis('off')
+  plt.subplot(3, 4, 3)
+  plt.imshow(law_img, cmap='gray')
+  plt.title('Law Image')
+  plt.axis('off')
+  plt.subplot(3, 4, 6)
+
+  plt.imshow(threshold_img, cmap='gray')
+  plt.title('Thresholding Image')
+  plt.axis('off')
+
+  plt.subplot(3, 4, 7)
+  plt.imshow(c_st, cmap='gray')
+  plt.title('Contrast Stretched Image')
+  plt.axis('off')
+  plt.subplot(3, 4, 8)
+  plt.imshow(halftone_img, cmap='gray')
+  plt.title('Half-toned Image')
+  plt.axis('off')
+  plt.show()
+
+def display_histograms(hist_org, hist_eq):
+  plt.figure(figsize=(10, 4))
+  plt.subplot(1, 2, 1)
+  plt.bar(range(256), hist_org)
+  plt.title('Histogram of Original Image')
+  plt.subplot(1, 2, 2)
+  plt.bar(range(256), hist_eq)
+  plt.title('Histogram of Histogram Equalized Image')
+  plt.show()
+
+def halftone(image):
+# Define a dithering matrix
+  dither_matrix = np.array([[0, 8, 2, 10],
+                            [12, 4, 14, 6],
+                            [3, 11, 1, 9],
+                            [15, 7, 13, 5]])
+# Load the image in grayscale
+  image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+# Initialize halftoned image
+  halftoned_image = np.zeros_like(image_gray)
+# Apply halftoning
+  for i in range(image_gray.shape[0]):
+    for j in range(image_gray.shape[1]):
+      if image_gray[i, j] > dither_matrix[i % 4, j % 4]:
+        halftoned_image[i, j] = 255
+  return halftoned_image
+
+img_path = "f1.jpg"
+
+Log_image = log_transform(np.array(cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)), 1)
+
+power_law_img = power_law_T(np.array(cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)), 1.2)
+
+contrast_img = contrast_st(np.array(cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)))
+
+histrogram = calculate_histogram( np.array(cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)))
+
+histrogram_eq = histogram_equalization( np.array(cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)))
+
+t_image = thresholding( np.array(cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)), 120)
+
+halftone_img = halftone( np.array(cv2.imread(img_path, cv2.IMREAD_COLOR)))
+
+org_img =cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+
+display_images_only(org_img,Log_image,power_law_img,t_image,contrast_img,halftone_img)
+display_histograms( histrogram,histrogram_eq)
+
+
+
+
+
+
+********************************************
+#Practical 5
+#Aim: To apply gradient and Laplacian for image enhancement.
+
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy import ndimage
+
+image_path="f1.jpg"
+original_imge=cv2.imread(image_path,cv2.IMREAD_GRAYSCALE)
+
+gradient_x=cv2.Sobel(original_imge,cv2.CV_64F,1, 0, ksize=3)
+gradient_y=cv2.Sobel(original_imge,cv2.CV_64F,0, 1, ksize=3)
+
+gradient_magnitude=np.sqrt(gradient_x**2,gradient_y**2)
+gradient_direction=np.arctan2(gradient_y,gradient_x)
+
+laplacian_image=cv2.Laplacian(original_imge,cv2.CV_64F)
+
+
+# Display the  result
+
+plt.figure(figsize=(24,12))
+
+plt.subplot(2,3,1)
+plt.imshow(original_imge,cmap='gray')
+plt.title('Orginal Image')
+
+plt.subplot(2,3,2)
+plt.imshow(gradient_x,cmap='gray')
+plt.title('Gradient X')
+
+plt.subplot(2,3,3)
+plt.imshow(gradient_y,cmap='gray')
+plt.title('Gradient Y')
+
+plt.subplot(2,3,4)
+plt.imshow(gradient_magnitude,cmap='gray')
+plt.title('Gradient Magnitude')
+
+plt.subplot(2,3,5)
+plt.imshow(gradient_direction,cmap='gray')
+plt.title('Laplacian direction')
+
+plt.subplot(2,3,6)
+plt.imshow(laplacian_image,cmap='gray')
+plt.title('Laplacian')
+
+plt.tight_layout()
+plt.show()
+
+
+
+
+
+
+********************************************
+
+#Practical 6
+#Aim:linear smoothing and nonlinear smoothing.
+
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy import ndimage
+
+image_path='f1.jpg'
+original_imge=cv2.imread(image_path,cv2.IMREAD_GRAYSCALE)
+
+if original_imge is None:
+  print("Error: Image not found or could not be loaded.")
+  exit()
+
+noise=np.random.normal(0,25,original_imge.shape).astype('uint8')
+noisy_image=cv2.add(original_imge,noise)
+
+
+# Function to apply linear (Gaussian blur) smoothing
+
+def linear_smoothing(image,kernel_size):
+  return cv2.GaussianBlur(image,(kernel_size,kernel_size),0)
+
+def nonlinear_smoothing(image,kernel_size):
+  return cv2.medianBlur(image,kernel_size)
+
+linear_smoothed_image=linear_smoothing(noisy_image,kernel_size=5)
+nonlinear_smoothed_image=nonlinear_smoothing(noisy_image,kernel_size=5)
+
+
+#display the results
+
+plt.figure(figsize=(12,6))
+
+plt.subplot(2,3,1)
+plt.imshow(original_imge,cmap='gray')
+plt.title('original Image')
+
+plt.subplot(2,3,2)
+plt.imshow(noisy_image,cmap='gray')
+plt.title('Noisy Image')
+
+plt.tight_layout()
+plt.show()
+
+# Display the results
+
+plt.figure(figsize=(12,6))
+
+plt.subplot(2,3,1)
+plt.imshow(linear_smoothed_image,cmap='gray')
+plt.title('Linear Smoothing (Gaussian Blur)')
+
+plt.subplot(2,3,2)
+plt.imshow(nonlinear_smoothed_image,cmap='gray')
+plt.title('NonLinear Smoothing (Median Filter)')
+
+plt.tight_layout()
+plt.show()
+
+
+
+
+
+
+********************************************
+#Practical 7
+#Aim:smoothing, sharpening, and unsharp masking.
+
+import cv2
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy import ndimage
+
+image_path='f1.jpg'
+original_imge=cv2.imread(image_path,cv2.IMREAD_GRAYSCALE)
+
+
+def apply_smoothing(image,kernel_size):
+  return cv2.GaussianBlur(image,(kernel_size,kernel_size),0)
+
+def apply_sharpening(image):
+  kernel=np.array([[-1,-1,-1],
+                   [-1,9,-1],
+                   [-1,-1,-1]])
+  return cv2.filter2D(image,-1,kernel)
+
+def apply_unsharp_masking(image,sigma=1.5,strength=1.5):
+  blurred=cv2.GaussianBlur(image,(0,0),sigma)
+  sharpened=cv2.addWeighted(image,1+strength,blurred,-strength,0)
+  return sharpened
+
+smoothed_image=apply_smoothing(original_imge,kernel_size=5)
+sharpened_image=apply_sharpening(original_imge)
+unsharp_mask_image=apply_unsharp_masking(original_imge)
+
+
+plt.figure(figsize=(12,6))
+
+plt.subplot(2,3,1)
+plt.imshow(original_imge,cmap='gray')
+plt.title('Original Image')
+
+plt.subplot(2,3,2)
+plt.imshow(smoothed_image,cmap='gray')
+plt.title('Smoothing Filter')
+
+plt.tight_layout()
+plt.show()
+
+plt.figure(figsize=(12,6))
+
+plt.subplot(2,3,1)
+plt.imshow(sharpened_image,cmap='gray')
+plt.title('Sharpening Filter')
+
+plt.subplot(2,3,2)
+plt.imshow(unsharp_mask_image,cmap='gray')
+plt.title('Unsharp Masking Filter')
+
+plt.tight_layout()
+plt.show()
+
+
+
+
+
+
+
+********************************************
+
+#Practical 8
+#Aim:edge detection techniques such as Sobel and Canny.
+
+import cv2
+import matplotlib.pyplot as plt
+from scipy import ndimage
+import numpy as np
+
+image_path='f1.jpg'
+original_imge=cv2.imread(image_path,cv2.IMREAD_GRAYSCALE)
+
+sobel_x=cv2.Sobel(original_imge,cv2.CV_64F,1,0,ksize=3)
+sobel_y=cv2.Sobel(original_imge,cv2.CV_64F,0,1,ksize=3)
+
+sobel_magnitude=np.sqrt(sobel_x**2+sobel_y**2)
+sobel_direction=np.arctan2(sobel_y,sobel_x)
+
+canny_edges=cv2.Canny(original_imge,50,150)
+
+plt.figure(figsize=(10,5))
+
+plt.subplot(2, 3, 1)
+plt.imshow(original_imge, cmap='gray')
+plt.title('Original Image')
+
+plt.subplot(2, 3, 2)
+plt.imshow(np.abs(sobel_x), cmap='gray')
+plt.title('Sobel X')
+
+plt.subplot(2, 3, 3)
+plt.imshow(np.abs(sobel_y), cmap='gray')
+plt.title('Sobel Y')
+plt.tight_layout()
+plt.show()
+
+plt.subplot(2, 3, 4)
+plt.imshow(sobel_magnitude, cmap='gray')
+plt.title('Sobel Magnitude')
+plt.subplot(2, 3, 5)
+plt.imshow(sobel_direction, cmap='gray')
+plt.title('Sobel direction')
+plt.subplot(2, 3, 6)
+plt.imshow(canny_edges, cmap='gray')
+plt.title('Canny Edges')
+plt.tight_layout()
+plt.show()
+
+
+
+
+
+
+
+********************************************
+
+#Practical 9
+#Aim: morphological image processing techniques(dilation, erosion, opening, closing)
+
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
+from scipy import ndimage
+import os
+
+image_path = 'f1.jpg'
+original_imge = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+
+if not os.path.exists(image_path):
+  raise FileNotFoundError(f"File not found: {image_path}")
+  original_imge = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
+if original_imge is None:
+  raise ValueError("Image failed to load")
+
+def display_images(images, titles):
+  plt.figure(figsize=(12, 8))
+  for i in range(len(images)):
+    plt.subplot(1, len(images), i + 1)
+    plt.imshow(images[i], cmap='gray')
+    plt.title(titles[i])
+    plt.axis('off')
+  plt.show()
+
+def apply_morphological_operations(image):
+  kernel = np.ones((5, 5), np.uint8)
+  erosion = cv2.erode(image, kernel, iterations=1)
+  dilation = cv2.dilate(image, kernel, iterations=1)
+  opening = cv2.morphologyEx(image, cv2.MORPH_OPEN, kernel)
+  closing = cv2.morphologyEx(image, cv2.MORPH_CLOSE, kernel)
+  return [image, erosion, dilation, opening, closing]
+
+morph_images = apply_morphological_operations(original_imge)
+titles = ["Original", "Erosion", "Dilation", "Opening", "Closing"]
+display_images(morph_images[:3], titles[:3])
+
+display_images(morph_images[3:],titles[3:])
+
+
+
+
+
+
+
+********************************************
+
+#Practical 10
+#Aim:detectors and descriptors(corner and blob detection, haar fetures) 
+
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
+from scipy import ndimage
+
+img_path="f1.jpg"
+image=cv2.imread(img_path,cv2.IMREAD_GRAYSCALE)
+
+plt.figure(figsize=(24,12))
+plt.subplot(1,4,1)
+plt.imshow(cv2.cvtColor(image,cv2.IMREAD_GRAYSCALE))
+plt.title("Original Image")
+plt.axis("off")
+
+
+#Corner Dectection
+
+corners=cv2.goodFeaturesToTrack(image,100,0.01,10)
+corners=corners.reshape(-1,2)
+corner_image=image.copy()
+for corner in corners:
+  x,y =corner
+  cv2.circle(corner_image,(int(x),int(y)),5,(0,255,0), -1)
+
+plt.figure(figsize=(24,12))
+
+plt.subplot(1,4,2)
+plt.imshow(cv2.cvtColor(corner_image,cv2.IMREAD_GRAYSCALE))
+plt.title("Corner Detection")
+plt.axis('off')
+
+
+#Blob Detection
+
+detector = cv2.SimpleBlobDetector_create()
+keypoints=detector.detect(image)
+bolb_image=cv2.drawKeypoints(image,keypoints,None,(0,0,255),cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS)
+
+plt.subplot(1,4,3)
+plt.imshow(cv2.cvtColor(bolb_image,cv2.IMREAD_GRAYSCALE))
+plt.title('Bolb Dtection')
+plt.axis('off')
+
+
+#Haar Features (Face Dtection)
+
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+faces = face_cascade.detectMultiScale(image, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+face_image = image.copy()
+for (x, y, w, h) in faces:
+  cv2.rectangle(face_image, (x,y),(x+w, y+h),(225,0,0),2)
+
+plt.subplot(1,4,4)
+plt.imshow(cv2.cvtColor(face_image,cv2.IMREAD_GRAYSCALE))
+plt.title('Face Detection')
+plt.axis('off')
+plt.tight_layout()
+plt.show()
+
+
+
+
+
+
+
+
+********************************************
+
+#Practical 11
+
+#Aim:using both edge-based and region-based segmentation methods
+
+import numpy as np
+import matplotlib.pyplot as plt
+import cv2
+
+image_path="f1.jpg"
+image=cv2.imread(image_path,cv2.IMREAD_GRAYSCALE)
+
+def display_images (images,titles):
+  plt.figure(figsize=(24,12))
+  for i in range(len(images)):
+    plt.subplot(1,len(images),i+1)
+    plt.imshow(images[i],cmap='gray')
+    plt.title(titles[i])
+    plt.axis('off')
+  plt.show()
+  
+def edge_based_segmentation(image):
+  edges=cv2.Canny(image,50,150)
+  lines=cv2.HoughLinesP(edges,1,np.pi/180,threshold=50, minLineLength=50,maxLineGap=10)
+  lines_image=np.copy(image)
+
+  if lines is not None:
+    for line in lines:
+      x1,y1,x2,y2 =line[0]
+      cv2.line(lines_image,(x1,y1),(x2,y2),255,255,2)
+  return [edges, lines_image],['Canny Edges' , 'Detected Lines']
+
+
+def region_based_segmentation(image):
+  _,binary_image=cv2.threshold(image,127,255,cv2.THRESH_BINARY)
+
+  contours,_=cv2.findContours(binary_image,cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+
+  contour_image=np.zeros_like(image)
+  cv2.drawContours(contour_image, contours, -1, 255, 2)
+
+  return [binary_image, contour_image], ['Binary Image' , 'Detected Contours']
+
+edge_segmentation_result,edge_segmentaion_titles=edge_based_segmentation(image)
+
+region_segmentation_result, region_segmentation_titles=region_based_segmentation(image)
+
+display_images(edge_segmentation_result,edge_segmentaion_titles)
+display_images(region_segmentation_result,region_segmentation_titles)
+
+
+
+
+
+
+
+
