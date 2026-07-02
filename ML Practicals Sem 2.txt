@@ -1,0 +1,938 @@
+Prac 1 (Linear Regression)
+
+Code:
+
+import pandas as pd
+import numpy as np
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
+
+#load the data
+data=pd.read_csv('/content/CGPA_Data.csv')
+
+#prepare the data
+#X independent variable and as dependent variable
+X=data.drop('StudyHoursWeek',axis=1)
+y=data['StudyHoursWeek']
+
+#split data
+X_train,X_test,y_train,y_test=train_test_split( X,y,test_size=0.2,random_state=13)
+print(X_train)
+
+#training model
+model=LinearRegression()
+model.fit(X_train,y_train)
+
+#evaluate the model
+score=model.score(X_test,y_test)
+print("Model Score= ",score)
+
+#make prediction
+new_data=pd.DataFrame({'CGPA':[10]})
+prediction=model.predict(new_data)
+print("Pridicted CGPA: ",prediction)
+
+plt.scatter(X_train,y_train,color='red')
+plt.show()
+
+y_pred=model.predict(X_test)
+print(y_pred)
+
+plt.scatter(X_test,y_test,color='red')
+plt.plot(X_test,y_pred,color='blue')
+plt.show() 
+
+
+_____________________________________________________________________________________________________________
+
+Prac 2 (Multiple Linear Regression)
+
+Code:
+
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.linear_model import LinearRegression, Ridge, Lasso, ElasticNet
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+import numpy as np
+
+from google.colab import drive
+drive.mount('/content/drive')
+
+diamond = pd.read_csv('/content/diamonds.csv')
+
+
+print("Dataset Description:\n")
+print(diamond.describe(include='all'))
+diamond.info()
+
+print("First 10 Records:\n")
+diamond.head(10)
+
+print("\nUnique values in cut:", diamond['cut'].unique())
+print("Unique values in color:", diamond['color'].unique())
+print("Unique values in clarity:", diamond['clarity'].unique())
+
+print("\nCrosstab: Color vs Clarity\n")
+print(pd.crosstab(diamond['color'], diamond['clarity']))
+print("\nCrosstab: Cut vs Color\n")
+print(pd.crosstab(diamond['cut'],diamond['color']))
+
+cut_map = {'Fair':0, 'Good':1, 'Ideal':2, 'Premium':3, 'Very Good':4}
+color_map = {'D':0, 'E':1, 'F':2, 'G':3, 'H':4, 'I':5, 'J':6}
+clarity_map = {'I1':0, 'IF':1, 'SI1':2, 'SI2':3, 'VS1':4, 'VS2':5, 'VVS1':6, 'VVS2':7}
+
+diamond['cut'] = diamond['cut'].map(cut_map)
+diamond['color'] = diamond['color'].map(color_map)
+diamond['clarity'] = diamond['clarity'].map(clarity_map)
+
+
+plt.figure(figsize=(10,6))
+sns.heatmap(diamond.corr(), annot=True)
+plt.title("Correlation Heatmap")
+plt.show()
+sns.pairplot(diamond.sample(1000))
+plt.show()
+
+X = diamond.drop('price', axis=1)
+y = diamond['price']
+
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.25, random_state=1 )
+
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+models = {
+    "Linear Regression": LinearRegression(),
+    "Ridge": Ridge(),
+    "Lasso": Lasso(),
+    "ElasticNet": ElasticNet()
+}
+
+for name, model in models.items():
+    print(f"\n {name}")
+
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+
+    mae = mean_absolute_error(y_test, y_pred)
+    mse = mean_squared_error(y_test, y_pred)
+    rmse = np.sqrt(mse)
+    r2 = r2_score(y_test, y_pred)
+
+    print("MAE:", mae)
+    print("MSE:", mse)
+    print("RMSE:", rmse)
+    print("R2 Score:", r2)
+
+    print("\nIntercept:", model.intercept_)
+    print("Coefficients:", model.coef_)
+
+    equation = f"Price = {model.intercept_}"
+    for i, col in enumerate(X.columns):
+        equation += f" + ({model.coef_[i]} * {col})"
+
+    print("\nRegression Equation:")
+    print(equation)
+
+___________________________________________________________________________________________
+
+
+Prac 3 (Logistic Regression)
+
+Code:
+
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.metrics import ( accuracy_score, precision_score, recall_score, f1_score,
+    roc_auc_score, confusion_matrix, classification_report )
+from sklearn.linear_model import LogisticRegression
+
+# Load dataset
+df = pd.read_csv("/content/escooter_dataset.csv")
+print("Shape:", df.shape)
+df.head()
+
+
+#Separate features and target
+TARGET = "swap_needed"
+
+if TARGET not in df.columns:
+    raise ValueError(f"Target column '{TARGET}' not found. Available columns: {list(df.columns)}")
+
+X = df.drop(columns=[TARGET])
+y = df[TARGET]
+
+print("X shape:", X.shape)
+print("y distribution:\n", y.value_counts(dropna=False))
+
+
+#Detect numeric/categorical columns
+num_cols = X.select_dtypes(include=["int64", "float64", "int32", "float32"]).columns.tolist()
+cat_cols = [c for c in X.columns if c not in num_cols]  # if any non-numeric columns exist
+print("Numeric columns:", num_cols)
+print("Categorical columns:", cat_cols)
+
+#Build preprocessing + model pipeline
+numeric_transformer = Pipeline(steps=[
+    ("imputer", SimpleImputer(strategy="median")),
+    ("scaler", StandardScaler()) ])
+categorical_transformer = Pipeline(steps=[
+    ("imputer", SimpleImputer(strategy="most_frequent")),
+    # If you have text columns, uncomment:
+    # ("onehot", OneHotEncoder(handle_unknown="ignore"))
+])
+
+preprocess = ColumnTransformer(
+    transformers=[
+        ("num", numeric_transformer, num_cols),
+        ("cat", categorical_transformer, cat_cols),
+    ],
+    remainder="drop"
+)
+
+clf = Pipeline(steps=[
+    ("preprocess", preprocess),
+    ("model", LogisticRegression(max_iter=2000))
+])
+clf
+
+#Train-test split
+X_train, X_test, y_train, y_test = train_test_split(X, y,test_size=0.2, random_state=42,
+stratify=y if y.nunique() == 2 else None)
+print("Train size:", X_train.shape, "Test size:", X_test.shape)
+
+#Train model
+clf.fit(X_train, y_train)
+print("Training done.")
+
+#Evaluate model
+y_pred = clf.predict(X_test)
+
+# For ROC-AUC we need probabilities (binary classification)
+y_proba = None
+if y.nunique() == 2 and hasattr(clf.named_steps["model"], "predict_proba"):
+    y_proba = clf.predict_proba(X_test)[:, 1]
+
+print("--- Metrics ---")
+print("Accuracy :", accuracy_score(y_test, y_pred))
+print("Precision:", precision_score(y_test, y_pred, zero_division=0))
+print("Recall   :", recall_score(y_test, y_pred, zero_division=0))
+print("F1-score :", f1_score(y_test, y_pred, zero_division=0))
+
+if y_proba is not None:
+    print("ROC-AUC  :", roc_auc_score(y_test, y_proba))
+print("\nConfusion Matrix:\n", confusion_matrix(y_test, y_pred))
+print("\nClassification Report:\n", classification_report(y_test, y_pred, zero_division=0))
+
+___________________________________________________________________________________________
+
+Prac 4 (Decision Tree)
+
+Code:
+
+# Step 1: Import libraries
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+from sklearn.tree import DecisionTreeClassifier, plot_tree, export_text
+import matplotlib.pyplot as plt
+
+import pandas as pd
+# Step 2: Load dataset
+df = pd.read_csv('/content/Smart_Waste_Segregation.csv')
+
+# Step 3: Encode target column only
+le = LabelEncoder()
+df['label'] = le.fit_transform(df['label'])
+
+# Step 4: Split features and target
+X = df.drop('label', axis=1)
+y = df['label']
+
+# Step 5: Train Decision Tree using Entropy (Information Gain)
+model = DecisionTreeClassifier(criterion='entropy',random_state=42)
+model.fit(X, y)
+
+# Step 6: Plot Decision Tree
+plt.figure(figsize=(6,8))
+plot_tree(model,feature_names=X.columns,class_names=[str(c) for c in le.classes_],filled=True,rounded=True)
+plt.title("Decision Tree for Smart Waste Segregation")
+plt.show()
+
+# Step 7: Print Tree Rules
+tree_rules = export_text( model,feature_names=list(X.columns))
+print(tree_rules)
+
+
+_____________________________________________________________________________________________________________
+
+Prac 5 (SVM Classifier)
+
+Code:
+
+# Import Libraries
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+
+# Load Dataset
+df = pd.read_csv("/content/Irrigation.csv")
+df.head()
+
+
+# Features and Target
+X = df.drop("Status", axis=1)
+y = df["Status"]
+
+# Train-Test Split
+X_train, X_test, y_train, y_test = train_test_split( X, y, test_size=0.2, random_state=42)
+
+# Visualize class distribution
+sns.countplot(x='Status', data=df)
+plt.title("Class Distribution (0 = Normal, 1 = Faulty)")
+plt.show()
+
+# Clean Data
+X_train = pd.DataFrame(X_train).dropna(axis=1, how='all').dropna()
+y_train = y_train[X_train.index]
+
+# Linear SVM Model
+model = SVC(kernel='linear')
+model.fit(X_train, y_train)
+
+# Re-split (as shown in document)
+X_train, X_test, y_train, y_test = train_test_split( X, y, test_size=0.2, random_state=42)
+
+# Clean again
+X_train = pd.DataFrame(X_train).dropna(axis=1, how='all').dropna()
+X_test = pd.DataFrame(X_test)[X_train.columns].dropna()
+# Align targets
+y_train = y_train[X_train.index]
+y_test = y_test[X_test.index]
+
+
+
+# Feature Scaling
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+# RBF Kernel SVM Model
+model = SVC(kernel='rbf')
+model.fit(X_train, y_train)
+
+# Predictions
+y_pred = model.predict(X_test)
+
+# Evaluation
+print("Accuracy:", accuracy_score(y_test, y_pred))
+print("\nClassification Report:\n", classification_report(y_test, y_pred))
+
+# Confusion Matrix
+cm = confusion_matrix(y_test, y_pred)
+sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.title("Confusion Matrix")
+plt.show()
+
+# New Data Prediction
+new_data = [[40, 32, 60, 700, 18, 2.4]]
+new_data_scaled = scaler.transform(new_data)
+prediction = model.predict(new_data_scaled)
+
+print("Prediction:", "Faulty" if prediction[0] == 1 else "Normal")
+
+# Kernel Comparison
+for kernel in ['linear', 'rbf', 'poly']:
+    model = SVC(kernel=kernel)
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    print(f"{kernel} Kernel Accuracy:", accuracy_score(y_test, y_pred))
+
+_______________________________________________________________________________________________________
+
+Prac 6 (Support Vector Regressor)
+
+Code:
+
+# Import Libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import SVR
+from sklearn.metrics import mean_squared_error, r2_score
+
+# Load the dataset
+df = pd.read_csv('/content/Student_performance.csv')
+
+
+# Display data
+display(df.head())
+print(df.info())
+
+# Define features and target
+features = [
+    'Study_Hours',
+    'Sleep_Hours',
+    'Attendance',
+    'Previous_Marks',
+    'Internet_Usage',
+    'Stress_Level',
+    'Assignment_Score'
+]
+target = 'Final_Score'
+
+X = df[features]
+y = df[target]
+
+# Split the data
+X_train, X_test, y_train, y_test = train_test_split( X, y, test_size=0.2, random_state=42)
+
+# Scale features
+scaler_X = StandardScaler()
+scaler_y = StandardScaler()
+
+X_train_scaled = scaler_X.fit_transform(X_train)
+X_test_scaled = scaler_X.transform(X_test)
+
+
+
+# Scale target
+y_train_scaled = scaler_y.fit_transform(y_train.values.reshape(-1, 1)).flatten()
+y_test_scaled = scaler_y.transform(y_test.values.reshape(-1, 1)).flatten()
+
+# Train SVR model
+svr_model = SVR(kernel='rbf', C=1.0, epsilon=0.1)
+svr_model.fit(X_train_scaled, y_train_scaled)
+
+# Predictions
+y_pred_scaled = svr_model.predict(X_test_scaled)
+
+# Convert back to original scale
+y_pred = scaler_y.inverse_transform(y_pred_scaled.reshape(-1, 1)).flatten()
+
+# Evaluation
+mse = mean_squared_error(y_test, y_pred)
+rmse = np.sqrt(mse)
+r2 = r2_score(y_test, y_pred)
+
+print(f'Root Mean Squared Error: {rmse:.2f}')
+print(f'R-squared Score: {r2:.2f}')
+
+# Visualization
+plt.figure(figsize=(10, 6))
+sns.scatterplot(x=y_test, y=y_pred)
+
+plt.plot(
+    [y_test.min(), y_test.max()],
+    [y_test.min(), y_test.max()],
+    'r--',
+    lw=2
+)
+
+plt.xlabel('Actual Final Score')
+plt.ylabel('Predicted Final Score')
+plt.title('SVR: Actual vs Predicted Final Scores')
+plt.show()
+
+________________________________________________________________________
+
+Prac 7 (Percepton Iris)
+
+Code:
+
+#import libraries
+import numpy as np
+import pandas as pd
+from sklearn.linear_model import Perceptron
+from sklearn.metrics import accuracy_score
+from sklearn.datasets import load_iris
+
+iris=load_iris()
+iris
+iris.target_names
+
+#X=iris.data[:,(2,3)]  #petal length (cm), petal width (cm), as inputs
+#X=iris.data[:,(0,1)] #sepal length (cm), sepal width (cm), as inputs
+X=iris.data[:,:] #sepal length(cm),sepal width (cm), petal length(cm),petal width(cm) as input
+iris.target
+
+
+y=(iris.target ==0)
+y
+
+y=(iris.target==0).astype(int)
+y
+
+model=Perceptron(random_state=42)
+model.fit(X,y)
+
+y_pred=model.predict(X)
+y_pred
+print(accuracy_score(y,y_pred))
+
+
+model.coef_
+model.intercept_
+
+X[5:10]
+y[5:10]
+
+Z=[5. , 3.4, 1.5, 0.2]
+y=np.array([False])
+y_pred=model.predict(np.array(Z).reshape(-1,4))
+y_pred
+print(accuracy_score(y,y_pred))
+
+__________________________________________________________
+
+Prac 8 (MNIST Dataset)
+
+Code:
+
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Flatten
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras.utils import to_categorical
+import matplotlib.pyplot as plt
+ 
+# Load MNIST dataset
+(x_train, y_train), (x_test, y_test) = mnist.load_data()
+x_test.shape
+x_test[29]
+y_test[29]
+
+# Normalize pixel values: 0-255 to 0-1
+x_train = x_train / 255.0
+x_test = x_test / 255.0
+x_train[0]
+y_train
+y_test
+
+# One-hot encode labels
+y_train_cat = to_categorical(y_train, 10)
+y_test_cat = to_categorical(y_test, 10)
+y_test_cat[29]
+
+# Build MLP model
+model = Sequential([
+    Flatten(input_shape=(28, 28)),
+    Dense(128, activation='relu'),
+    Dense(64, activation='relu'),
+    Dense(10, activation='softmax')
+])
+
+# Compile model
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+
+# Train model
+history = model.fit(x_train, y_train_cat, epochs=10, batch_size=32, validation_split=0.2)
+
+# Evaluate model
+test_loss, test_accuracy = model.evaluate(x_test, y_test_cat)
+print("Test Loss:", test_loss)
+print("Test Accuracy:", test_accuracy)
+
+# Predict first 5 test images
+predictions = model.predict(x_test[:5])
+
+for i in range(5):
+    plt.imshow(x_test[i], cmap='gray')
+    plt.title(f"Predicted: {predictions[i].argmax()}, Actual: {y_test[i]}")
+    plt.axis('off')
+    plt.show()
+_____________________________________________________________________________________________
+
+Prac 9 (Fashion MNIST Dataset)
+
+Code:
+
+#import librararies
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow import keras
+import pydot
+
+
+fashion_mnist=keras.datasets.fashion_mnist
+(X_train,y_train),(X_test,y_test)=fashion_mnist.load_data()
+X_train.shape
+X_test.shape
+y_train.shape
+y_test.shape
+print(y_test)
+print(len(y_test))
+y_train[7]
+
+plt.imshow(X_train[0])
+plt.show()
+
+y_train[0]
+class_names=["T-shirt/top","Trouser","Pullover","Dress","Coat","Sandal","Shirt","Sneaker"
+,"Bag", "Ankle boot"]
+class_names[y_train[0]]
+X_train[1]
+X_test[1]
+
+
+# Data Normalization
+X_train=X_train/255.0  # to get float numbers divide by 255.0
+X_test=X_test/255.0
+X_test[1]
+print(X_train.shape,X_test.shape)
+
+# Split data into train/valid/test set
+X_val,X_train = X_train[:5000],X_train[5000:]
+y_val,y_train = y_train[:5000],y_train[5000:]
+print(len(X_val))
+print(len(X_train))
+print(len(y_val))
+print(len(y_train))
+
+X_val.shape
+
+plt.imshow(X_train[0])
+plt.show()
+
+X_val[0]
+np.random.seed(42)
+tf.random.set_seed(42)
+
+
+model= keras.models.Sequential()
+model.add(keras.layers.Flatten(input_shape=[28,28])) #input 784
+model.add(keras.layers.Dense(300,activation="relu")) #hiddenlayer1 300
+model.add(keras.layers.Dense(100,activation="relu")) #hidedenlayer2 100
+model.add(keras.layers.Dense(10,activation="softmax")) #output 10
+
+model.summary()
+
+keras.utils.plot_model(model)
+
+weights,biases=model.layers[1].get_weights()
+weights
+weights.shape
+biases
+biases.shape
+
+model.compile(loss="sparse_categorical_crossentropy", # https://keras.io/api/losses/
+              optimizer="sgd",  # https://keras.io/api/optimizers/
+              metrics=["accuracy"]) # https://keras.io/api/metrics/
+
+model_history=model.fit(X_train,y_train,epochs=10,
+                        validation_data=(X_val,y_val))
+
+model_history.params
+model_history.history
+
+print(model_history.history['val_loss'])
+print(len(model_history.history['val_loss']))
+
+print(model_history.history['accuracy'])
+print(len(model_history.history['accuracy']))
+
+len(model_history.history)
+
+import pandas as pd
+
+pd.DataFrame(model_history.history).plot(figsize=(8,5))
+plt.grid(True)
+plt.gca().set_ylim(0,1)
+plt.show()
+
+model.evaluate(X_test,y_test)
+
+X_new = X_test[:3]
+
+y_proba = model.predict(X_new)
+#y_proba
+y_proba.round(2)
+
+plt.imshow(X_new[2])
+plt.show()
+
+class_names
+
+print(class_names[9],' , ',class_names[2],' , ',class_names[1])
+
+X_new.shape
+
+plt.imshow(X_new[0])
+
+print(plt.imshow(X_test[1]))
+
+print(plt.imshow(X_test[2]))
+
+class_names[y_test[1]]
+print(plt.imshow(X_test[8]))
+
+class_names[y_test[8]]
+
+__________________________________________________________________________
+
+Prac 10 (Auto MPG Dataset)
+
+Code:
+
+#import libraries
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+from tensorflow.keras.layers import Normalization
+
+print(tf.__version__)
+
+
+#Get Data
+url = 'http://archive.ics.uci.edu/ml/machine-learning-databases/auto-mpg/auto-mpg.data'
+column_names = ['MPG', 'Cylinders', 'Displacement', 'Horsepower', 'Weight',
+                'Acceleration', 'Model Year', 'Origin']
+
+raw_dataset = pd.read_csv(url, names=column_names, na_values='?', comment='\t',
+                          sep=' ', skipinitialspace=True)
+
+dataset = raw_dataset.copy()
+dataset.tail()
+dataset
+
+
+#Clean data
+dataset.isna().sum()
+
+dataset = dataset.dropna()
+dataset
+
+dataset['Origin'] = dataset['Origin'].map({1: 'USA', 2: 'Europe', 3: 'Japan'})
+dataset
+
+dataset = pd.get_dummies(dataset, columns=['Origin'], prefix='', prefix_sep='')
+dataset.tail()
+
+#Split the data into train and test
+train_dataset = dataset.sample(frac=0.8, random_state=0)
+test_dataset = dataset.drop(train_dataset.index)
+test_dataset
+
+#Inspect the data
+sns.pairplot(train_dataset[['MPG', 'Cylinders', 'Displacement', 'Weight']], diag_kind='kde')
+
+train_dataset.describe()
+
+train_dataset.describe().transpose()
+
+#Split features from labels
+train_features = train_dataset.copy()
+test_features = test_dataset.copy()
+
+print(train_features)
+print(test_features)
+
+train_labels = train_features.pop('MPG')   ## pop()  is to remove
+test_labels = test_features.pop('MPG')
+
+test_labels
+
+
+#Normalization
+train_dataset.describe().transpose()[['mean', 'std','count']]
+
+normalizer = Normalization()
+
+ormalizer.adapt(np.array(train_features))  ## Standard Scalar
+
+print(normalizer.mean.numpy())
+
+first = np.array(train_features[:1]).astype(float)  ## Just taken the 1st row, and converted to float to handle boolean columns
+
+with np.printoptions(precision=2, suppress=True):
+  print('First example:', first)
+  print()
+  print('Normalized:', normalizer(first).numpy())  ## just normalizing to demonstrate first row
+
+# Linear regression
+horsepower = train_features['Horsepower'].to_numpy().reshape(-1, 1)
+
+horsepower_normalizer = Normalization(input_shape=[1,])
+horsepower_normalizer.adapt(horsepower)
+horsepower_normalizer
+
+horsapower_model = tf.keras.Sequential([
+    horsepower_normalizer,
+    layers.Dense(units=1)
+])
+horsapower_model.summary()
+
+horsapower_model.predict(horsepower[:10])   ## Feed forward is working
+
+horsapower_model.compile(
+    optimizer=tf.optimizers.Adam(learning_rate=0.1),
+    loss='mean_squared_error')  #  loss='mean_absolute_error'
+
+history = horsapower_model.fit(
+    train_features['Horsepower'], train_labels,
+    epochs=100,
+    # suppress logging
+    verbose=0,
+    # Calculate validation results on 20% of the training data
+    validation_split = 0.2)
+
+hist = pd.DataFrame(history.history)
+hist['epoch'] = history.epoch
+hist
+
+def plot_loss(history):
+  plt.plot(history.history['loss'], label='loss')
+  plt.plot(history.history['val_loss'], label='val_loss')
+  plt.ylim([0, 10])
+  plt.xlabel('Epoch')
+  plt.ylabel('Error [MPG]')
+  plt.legend()
+  plt.grid(True)
+
+test_results = {}
+
+test_results['horsepower_model'] = horsapower_model.evaluate(
+    test_features['Horsepower'],
+    test_labels, verbose=0)
+
+print(test_results['horsepower_model'])  ## loss reported on test data
+
+x = tf.linspace(0.0, 250, 251)   ## 251 points from 0 to 250
+y = horsapower_model.predict(x)
+
+def plot_horsepower(x, y):
+  plt.scatter(train_features['Horsepower'], train_labels, label='Data')
+  plt.plot(x, y, color='k', label='Predictions')
+  plt.xlabel('Horsepower')
+  plt.ylabel('MPG')
+  plt.legend()
+
+plot_horsepower(x,y)
+
+linear_model = tf.keras.Sequential([ normalizer, layers.Dense(units=1)])
+linear_model.predict(train_features[:10])  ## this is a untrained model
+linear_model.layers[1].kernel   ## as their are 9 features
+linear_model.compile( optimizer=tf.optimizers.Adam(learning_rate=0.1),
+    loss='mean_squared_error')  #loss='mean_absolute_error'
+
+history = linear_model.fit(
+    train_features, train_labels,
+    epochs=100,
+    # suppress logging
+    verbose=0,
+    # Calculate validation results on 20% of the training data
+    validation_split = 0.2)
+
+plot_loss(history)
+
+test_results['linear_model'] = linear_model.evaluate(test_features, test_labels, verbose=0)
+
+print(test_results['linear_model'])  ## loss reported from test data in case of multi LR model
+
+#A DNN regression
+def build_and_compile_model(norm):
+  model = keras.Sequential([
+      norm,
+      layers.Dense(64, activation='relu'),
+      layers.Dense(64, activation='relu'),
+      layers.Dense(1)
+  ])
+
+  model.compile(loss='mean_absolute_error',
+                optimizer=tf.keras.optimizers.Adam(0.001))
+  return model
+dnn_horsepower_model = build_and_compile_model(horsepower_normalizer)
+
+dnn_horsepower_model.summary()
+
+history = dnn_horsepower_model.fit(
+    train_features['Horsepower'], train_labels,
+    validation_split=0.2,
+    verbose=0, epochs=100)
+
+plot_loss(history)
+
+x = tf.linspace(0.0, 250, 251)
+y = dnn_horsepower_model.predict(x)
+
+def plot_horsepower(x, y):
+  plt.scatter(train_features['Horsepower'], train_labels, label='Data')
+  plt.plot(x, y, color='k', label='Predictions')
+  plt.xlabel('Horsepower')
+  plt.ylabel('MPG')
+  plt.legend()
+
+test_results['dnn_horsepower_model'] = dnn_horsepower_model.evaluate(
+    test_features['Horsepower'], test_labels,
+    verbose=0)
+
+print(test_results['dnn_horsepower_model'])  ## loss reported on test_data for DNN
+
+dnn_model = build_and_compile_model(normalizer)
+dnn_model.summary()
+
+history = dnn_model.fit(
+    train_features, train_labels,
+    validation_split=0.2,
+    verbose=0, epochs=100)
+
+plot_loss(history)
+
+test_results['dnn_model'] = dnn_model.evaluate(test_features, test_labels, verbose=0)
+print(test_results['dnn_model'])
+
+pd.DataFrame(test_results, index=['Mean Squared error [MPG]']).T
+test_predictions = dnn_model.predict(test_features).flatten()
+a = plt.axes(aspect='equal')
+plt.scatter(test_labels, test_predictions)
+plt.xlabel('True Values [MPG]')
+plt.ylabel('Predictions [MPG]')
+lims = [0, 50]
+plt.xlim(lims)
+plt.ylim(lims)
+_ = plt.plot(lims, lims)
+
+error = test_predictions - test_labels
+plt.hist(error, bins=25)
+plt.xlabel('Prediction Error [MPG]')
+_ = plt.ylabel('Count')
+
+
+
+
+
+
+
+
+
+
+
+
+
+
