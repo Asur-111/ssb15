@@ -1,0 +1,1048 @@
+
+Prac 1 (E-commerce scraping & MYSOL Pipeline)
+
+Code:
+
+import requests
+from bs4 import BeautifulSoup
+import pymysql
+
+# -------------------------------
+# PIPELINE 1: SCRAPING FUNCTION
+# -------------------------------
+def scrape_amazon_product(url):
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9"
+    }
+
+    response = requests.get(url, headers=headers)
+
+    if response.status_code != 200:
+        print("Request Failed! Status Code:", response.status_code)
+        return None
+
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    # -------- Extract basic details --------
+    title = soup.find(id="productTitle")
+    title = title.get_text(strip=True) if title else "N/A"
+
+    price = soup.find("span", class_="a-price-whole")
+    if not price:
+        price = soup.find("span", class_="a-offscreen")
+    price = price.get_text(strip=True) if price else "N/A"
+
+    rating = soup.find("span", class_="a-icon-alt")
+    rating = rating.get_text(strip=True) if rating else "N/A"
+
+    # -------- Default feature values --------
+    color = "N/A"
+    material = "N/A"
+    dimensions = "N/A"
+
+    # -------- Extract product specifications --------
+    tables = soup.find_all("table")
+
+    for table in tables:
+        rows = table.find_all("tr")
+        for row in rows:
+            cols = row.find_all(["th", "td"])
+
+            if len(cols) >= 2:
+                key = cols[0].get_text(strip=True).lower()
+                value = cols[1].get_text(strip=True)
+
+                if "color" in key:
+                    color = value
+                elif "material" in key:
+                    material = value
+                elif "dimension" in key:
+                    dimensions = value
+
+    return {
+        "title": title,
+        "price": price,
+        "rating": rating,
+        "color": color,
+        "material": material,
+        "dimensions": dimensions
+    }
+
+
+# --------------------------------
+# PIPELINE 2: SAVE TO MYSQL
+# --------------------------------
+def save_to_mysql(product):
+    conn = pymysql.connect(
+        host="localhost",
+        user="root",
+        password="your sql password", 
+        database="ecommerce",
+        charset="utf8mb4"
+    )
+
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS amazon_products (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255),
+            price VARCHAR(50),
+            rating VARCHAR(50),
+            color VARCHAR(100),
+            material VARCHAR(100),
+            dimensions VARCHAR(255)
+        )
+    """)
+
+    insert_query = """
+        INSERT INTO amazon_products
+        (title, price, rating, color, material, dimensions)
+        VALUES (%s, %s, %s, %s, %s, %s)
+    """
+
+    cursor.execute(insert_query, (
+        product["title"],
+        product["price"],
+        product["rating"],
+        product["color"],
+        product["material"],
+        product["dimensions"]
+    ))
+
+    conn.commit()
+
+    print("\nData inserted successfully into MySQL!")
+
+    cursor.close()
+    conn.close()
+
+
+# -------------------------------
+# MAIN PROGRAM
+# -------------------------------
+url = input("Enter Amazon Product URL: ")
+
+product = scrape_amazon_product(url)
+
+if product:
+    print("\n----------- SCRAPED PRODUCT -----------")
+
+    for key, value in product.items():
+        print(f"{key.capitalize()} : {value}")
+
+    save_to_mysql(product)
+
+else:
+    print("Failed to scrape product.")
+
+
+_______________________________________________________________________________________
+
+Prac 2 (Social Media Scraping Twitter via Nitter)
+
+Code:
+
+Method 1
+
+import tweepy
+
+# ----------------- Twitter API Authentication -----------------
+BEARER_TOKEN = "YOUR_BEARER_TOKEN_HERE"
+
+client = tweepy.Client(bearer_token=BEARER_TOKEN)
+
+# ----------------- Fetch Tweets Function -----------------
+def fetch_tweets(keyword, max_results=10):
+    try:
+        response = client.search_recent_tweets(
+            query=keyword,
+            max_results=max_results,
+            tweet_fields=[
+                "created_at",
+                "text",
+                "author_id",
+                "lang",
+                "public_metrics"
+            ]
+        )
+
+        if response.data is None:
+            print("\nNo tweets found for the given keyword.")
+            return
+
+        print("\n========== TWEETS ==========\n")
+
+        for i, tweet in enumerate(response.data, start=1):
+            print(f"Tweet {i}")
+            print("Tweet ID      :", tweet.id)
+            print("Time          :", tweet.created_at)
+            print("Author ID     :", tweet.author_id)
+            print("Language      :", tweet.lang)
+            print("Text          :", tweet.text)
+            print("Likes         :", tweet.public_metrics["like_count"])
+            print("Retweets      :", tweet.public_metrics["retweet_count"])
+            print("-" * 70)
+
+    except tweepy.TweepyException as e:
+        print("\nTwitter API Error:")
+        print(e)
+
+    except Exception as e:
+        print("\nError:")
+        print(e)
+
+# ----------------- Main Program -----------------
+if __name__ == "__main__":
+    print("=" * 60)
+    print("        TWITTER (X) DATA SCRAPER USING TWEEPY")
+    print("=" * 60)
+
+    keyword = input("\nEnter keyword to search: ")
+    fetch_tweets(keyword)
+
+
+Method 2:
+
+import tweepy
+
+# ----------------- Twitter API Authentication ----------------
+# Paste your Bearer Token here (single line only)
+
+BEARER_TOKEN = "AAAAAAAAAAAAAAAAAAAAACtX%2BQEAAAAA5mjJzijypJDBoqHTco06vYr0q6k%3DRotlaXvieB0jxnkIKZdBu1neScoFc6qaJxqb78wJNg9vAgnZBg"
+
+# Initialize Tweepy Client
+client = tweepy.Client(bearer_token=BEARER_TOKEN)
+
+# ----------------- Function to Fetch Tweets ----------------
+def fetch_tweets(keyword, max_results=10):
+    try:
+        response = client.search_recent_tweets(
+            query=keyword,
+            max_results=max_results,
+            tweet_fields=[
+                "created_at",
+                "text",
+                "author_id",
+                "lang",
+                "public_metrics"
+            ]
+        )
+
+        if response.data is None:
+            print("\nNo tweets found for the given keyword.")
+            return
+
+        print("\n========== TWEETS ==========\n")
+
+        for i, tweet in enumerate(response.data, start=1):
+            print(f"Tweet {i}")
+            print("Time       :", tweet.created_at)
+            print("Tweet ID   :", tweet.id)
+            print("Author ID  :", tweet.author_id)
+            print("Language   :", tweet.lang)
+            print("Text       :", tweet.text)
+            print("Likes      :", tweet.public_metrics["like_count"])
+            print("Retweets   :", tweet.public_metrics["retweet_count"])
+            print("-" * 70)
+
+    except tweepy.TweepyException as e:
+        print("\nTwitter API Error:")
+        print(e)
+
+    except Exception as e:
+        print("\nError:")
+        print(e)
+
+# ----------------- Main Program ----------------
+if __name__ == "__main__":
+    print("=" * 60)
+    print("        TWITTER (X) DATA SCRAPER USING TWEEPY")
+    print("=" * 60)
+
+    keyword = input("\nEnter keyword to search: ")
+    fetch_tweets(keyword)
+
+
+_________________________________________________________________________________________
+
+Prac 3 (PageRank for Link Analysis)
+
+Code:
+
+import random
+
+# -------------------------------
+# Define link structure
+# -------------------------------
+pages = {
+    "Page1": ["Page2", "Page3"],
+    "Page2": ["Page3", "Page4"],
+    "Page3": ["Page1"],
+    "Page4": ["Page1", "Page2"]
+}
+
+# -------------------------------
+# Parameters
+# -------------------------------
+steps = 10000      # Number of random walks
+damping = 0.85     # Probability of following a link
+
+# -------------------------------
+# Initialize visit count
+# -------------------------------
+visit_count = {page: 0 for page in pages}
+
+# Start from a random page
+current_page = random.choice(list(pages.keys()))
+
+# -------------------------------
+# Random Walk Algorithm
+# -------------------------------
+for i in range(steps):
+
+    # Count the current page visit
+    visit_count[current_page] += 1
+
+    # Decide whether to follow a link or jump randomly
+    if random.random() < damping:
+        # Follow one of the outgoing links
+        current_page = random.choice(pages[current_page])
+    else:
+        # Jump to a random page
+        current_page = random.choice(list(pages.keys()))
+
+# -------------------------------
+# Calculate PageRank
+# -------------------------------
+page_rank = {}
+
+for page in pages:
+    page_rank[page] = visit_count[page] / steps
+
+# -------------------------------
+# Display Results
+# -------------------------------
+print("\n========== PageRank using Random Walk ==========\n")
+
+for page, rank in sorted(page_rank.items()):
+    print(f"{page} : {rank:.4f}")
+
+print("\nTotal Visits:")
+for page, visits in visit_count.items():
+    print(f"{page} : {visits}")
+
+
+____________________________________________________________________________
+
+Prac 4 (Spam Classifier)
+
+Code:
+
+# Install library (Run once)
+# pip install scikit-learn pandas
+
+# -------------------------------
+# Import Libraries
+# -------------------------------
+import pandas as pd
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.model_selection import train_test_split
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import accuracy_score
+
+# -------------------------------
+# Sample Dataset
+# -------------------------------
+data = {
+    'Message': [
+        'Win a free lottery now',
+        'Congratulations! Claim your prize',
+        'Call me when you reach home',
+        'Let us meet tomorrow',
+        'Free gift available',
+        'Important meeting at 10 AM',
+        'You have won cash reward',
+        'Happy Birthday! Have a great day'
+    ],
+
+    'Label': [
+        'Spam',
+        'Spam',
+        'Ham',
+        'Ham',
+        'Spam',
+        'Ham',
+        'Spam',
+        'Ham'
+    ]
+}
+
+# -------------------------------
+# Create DataFrame
+# -------------------------------
+df = pd.DataFrame(data)
+
+print("Dataset:\n")
+print(df)
+
+# -------------------------------
+# Convert Text into Numeric Features
+# -------------------------------
+vectorizer = CountVectorizer()
+X = vectorizer.fit_transform(df['Message'])
+
+# Labels
+y = df['Label']
+
+# -------------------------------
+# Split Dataset
+# -------------------------------
+X_train, X_test, y_train, y_test = train_test_split(
+    X,
+    y,
+    test_size=0.25,
+    random_state=42
+)
+
+# -------------------------------
+# Train Naive Bayes Model
+# -------------------------------
+model = MultinomialNB()
+model.fit(X_train, y_train)
+
+# -------------------------------
+# Prediction
+# -------------------------------
+y_pred = model.predict(X_test)
+
+# -------------------------------
+# Accuracy
+# -------------------------------
+accuracy = accuracy_score(y_test, y_pred)
+
+print("\nModel Accuracy:", round(accuracy * 100, 2), "%")
+
+# -------------------------------
+# Test New Message
+# -------------------------------
+new_message = ["Congratulations! You won a free iPhone"]
+
+new_vector = vectorizer.transform(new_message)
+
+prediction = model.predict(new_vector)
+
+print("\nNew Message:")
+print(new_message[0])
+
+print("Prediction:", prediction[0])
+
+___________________________________________________________________________
+
+Prac 5 (Text Mining and Web Preprocessing)
+
+Code:
+
+# Install required libraries (Run once)
+# pip install requests beautifulsoup4 nltk
+
+import requests
+from bs4 import BeautifulSoup
+import re
+import nltk
+from nltk.corpus import stopwords
+
+# Download stopwords (First time only)
+nltk.download('stopwords')
+
+# -------------------------------
+# Webpage URL
+# -------------------------------
+url = "https://en.wikipedia.org/wiki/Web_mining"
+
+headers = {
+    "User-Agent": "Mozilla/5.0"
+}
+
+try:
+    # -------------------------------
+    # Fetch Webpage
+    # -------------------------------
+    response = requests.get(url, headers=headers, timeout=10)
+    response.raise_for_status()
+
+    print("Status Code:", response.status_code)
+
+    # -------------------------------
+    # Parse HTML
+    # -------------------------------
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    # -------------------------------
+    # Extract Title
+    # -------------------------------
+    print("\nTITLE:")
+    print(soup.title.get_text() if soup.title else "Not Available")
+
+    # -------------------------------
+    # Extract Meta Description
+    # -------------------------------
+    description = soup.find("meta", attrs={"name": "description"})
+
+    print("\nMETA DESCRIPTION:")
+
+    if description and description.get("content"):
+        print(description["content"])
+    else:
+        print("Not Available")
+
+    # -------------------------------
+    # Extract Meta Keywords
+    # -------------------------------
+    keywords = soup.find("meta", attrs={"name": "keywords"})
+
+    print("\nMETA KEYWORDS:")
+
+    if keywords and keywords.get("content"):
+        print(keywords["content"])
+    else:
+        print("Not Available")
+
+    # -------------------------------
+    # Extract Webpage Text
+    # -------------------------------
+    text = soup.get_text()
+
+    # Convert to lowercase
+    text = text.lower()
+
+    # Remove numbers and special characters
+    text = re.sub(r'[^a-z\s]', ' ', text)
+
+    # Remove extra spaces
+    text = re.sub(r'\s+', ' ', text)
+
+    # -------------------------------
+    # Stopword Removal
+    # -------------------------------
+    stop_words = set(stopwords.words('english'))
+
+    words = text.split()
+
+    filtered_words = [
+        word for word in words
+        if word not in stop_words
+    ]
+
+    # -------------------------------
+    # Output
+    # -------------------------------
+    print("\nFIRST 50 PROCESSED WORDS:\n")
+    print(filtered_words[:50])
+
+    print("\nTOTAL WORDS BEFORE :", len(words))
+    print("TOTAL WORDS AFTER  :", len(filtered_words))
+
+except requests.exceptions.RequestException as e:
+    print("Error while fetching webpage:")
+    print(e)
+
+_______________________________________________________________________________________________
+
+Prac 6 (Apriori Algorithm Implementation)
+
+Code:
+
+# Install library (Run once)
+# pip install mlxtend pandas
+
+import pandas as pd
+from mlxtend.preprocessing import TransactionEncoder
+from mlxtend.frequent_patterns import apriori, association_rules
+
+# ---------------------------------------
+# Sample Transaction Dataset
+# ---------------------------------------
+transactions = [
+    ['Milk', 'Bread', 'Butter'],
+    ['Bread', 'Butter'],
+    ['Milk', 'Bread'],
+    ['Milk', 'Butter'],
+    ['Bread', 'Butter', 'Jam'],
+    ['Milk', 'Bread', 'Butter', 'Jam']
+]
+
+# ---------------------------------------
+# Convert to One-Hot Encoding
+# ---------------------------------------
+te = TransactionEncoder()
+te_array = te.fit(transactions).transform(transactions)
+
+df = pd.DataFrame(te_array, columns=te.columns_)
+
+print("========== Transaction Dataset ==========\n")
+print(df)
+
+# ---------------------------------------
+# Generate Frequent Itemsets
+# ---------------------------------------
+frequent_itemsets = apriori(
+    df,
+    min_support=0.3,
+    use_colnames=True
+)
+
+print("\n========== Frequent Itemsets ==========\n")
+print(frequent_itemsets)
+
+# ---------------------------------------
+# Generate Association Rules
+# ---------------------------------------
+rules = association_rules(
+    frequent_itemsets,
+    metric="confidence",
+    min_threshold=0.7
+)
+
+print("\n========== Association Rules ==========\n")
+
+print(
+    rules[
+        [
+            "antecedents",
+            "consequents",
+            "support",
+            "confidence",
+            "lift"
+        ]
+    ]
+)
+
+
+_______________________________________________________________________________________________________________________
+
+Prac 7 (Basic Web Crawler)
+
+Code:
+
+# Install libraries (Run once)
+# pip install requests beautifulsoup4
+
+import requests
+from bs4 import BeautifulSoup
+
+# -------------------------------
+# Get User Input
+# -------------------------------
+url = input("Enter Website URL: ")
+keyword = input("Enter Keyword to Search: ").lower()
+
+# -------------------------------
+# Browser Header
+# -------------------------------
+headers = {
+    "User-Agent": "Mozilla/5.0"
+}
+
+try:
+    # -------------------------------
+    # Fetch Webpage
+    # -------------------------------
+    response = requests.get(url, headers=headers, timeout=10)
+    response.raise_for_status()
+
+    # -------------------------------
+    # Parse HTML
+    # -------------------------------
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    # -------------------------------
+    # Extract Webpage Text
+    # -------------------------------
+    text = soup.get_text().lower()
+
+    # -------------------------------
+    # Search Keyword
+    # -------------------------------
+    if keyword in text:
+        print(f"\nKeyword '{keyword}' found in the webpage.")
+    else:
+        print(f"\nKeyword '{keyword}' NOT found in the webpage.")
+
+    # -------------------------------
+    # Display All Links
+    # -------------------------------
+    print("\nLinks found on the webpage:\n")
+
+    links = soup.find_all("a", href=True)
+
+    if links:
+        for link in links:
+            print(link["href"])
+    else:
+        print("No links found.")
+
+except Exception as e:
+    print("Error:", e)
+
+_____________________________________________________________________________________________
+
+Prac 8 (Focused Crawler For Local Search)
+
+Code:
+
+# Install libraries (Run once)
+# pip install requests beautifulsoup4
+
+import requests
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin
+
+# -------------------------------
+# User Input
+# -------------------------------
+url = input("Enter Website URL: ")
+keyword = input("Enter Keyword: ").lower()
+
+# -------------------------------
+# Browser Header
+# -------------------------------
+headers = {
+    "User-Agent": "Mozilla/5.0"
+}
+
+try:
+    # -------------------------------
+    # Fetch Webpage
+    # -------------------------------
+    response = requests.get(url, headers=headers, timeout=10)
+    response.raise_for_status()
+
+    # -------------------------------
+    # Parse HTML
+    # -------------------------------
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    print("\n========== FOCUSED CRAWLER RESULTS ==========\n")
+
+    found = False
+
+    # -------------------------------
+    # Extract and Filter Links
+    # -------------------------------
+    for link in soup.find_all("a", href=True):
+
+        link_text = link.get_text().strip().lower()
+        href = urljoin(url, link["href"])
+
+        # Check relevance
+        if keyword in link_text or keyword in href.lower():
+            print("Relevant Link :", href)
+            print("Link Text     :", link.get_text().strip())
+            print("-" * 50)
+            found = True
+
+    if not found:
+        print("No relevant links found for the keyword.")
+
+except Exception as e:
+    print("Error:", e)
+___________________________________________________________________________________________________
+
+Prac 9 (Deep Search Implementation for Plagiarm Detection)
+
+Code:
+
+# Install required libraries (Run once)
+# pip install ddgs requests beautifulsoup4 scikit-learn nltk
+
+import requests
+from bs4 import BeautifulSoup
+from ddgs import DDGS
+import nltk
+import time
+import re
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+# ----------------------------------
+# Download NLTK Data (Only stopwords needed)
+# ----------------------------------
+try:
+    nltk.download("stopwords", quiet=True)
+except:
+    pass
+
+# ----------------------------------
+# Split Paragraph into Sentences
+# (No NLTK punkt required)
+# ----------------------------------
+def split_sentences(text):
+    text = text.strip()
+
+    # Split on ., ! or ?
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+
+    # If no punctuation exists, treat whole text as one sentence
+    if len(sentences) == 1:
+        sentences = [text]
+
+    return [s.strip() for s in sentences if len(s.split()) >= 4]
+
+
+# ----------------------------------
+# Build Search Query
+# ----------------------------------
+def build_query(sentence):
+
+    stop_words = {
+        "the", "is", "a", "an", "of", "to", "and",
+        "in", "on", "for", "with", "by", "it",
+        "that", "this", "from", "as", "at", "be",
+        "are", "was", "were", "or"
+    }
+
+    words = []
+
+    for word in sentence.split():
+        word = word.lower().strip(",.!?;:\"'()[]{}")
+
+        if len(word) > 3 and word not in stop_words:
+            words.append(word)
+
+    return " ".join(words[:8])
+
+
+# ----------------------------------
+# Search Web using DuckDuckGo
+# ----------------------------------
+def search_web(query):
+
+    try:
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query, max_results=1))
+
+            if results:
+                return results[0]["href"]
+
+    except Exception as e:
+        print("Search Error:", e)
+
+    return None
+
+
+# ----------------------------------
+# Fetch Webpage Text
+# ----------------------------------
+def fetch_text(url):
+
+    try:
+        headers = {
+            "User-Agent": "Mozilla/5.0"
+        }
+
+        response = requests.get(url, headers=headers, timeout=10)
+
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        for tag in soup(["script", "style", "header", "footer", "nav"]):
+            tag.decompose()
+
+        text = soup.get_text(separator=" ", strip=True)
+
+        return text
+
+    except Exception:
+        return ""
+
+
+# ----------------------------------
+# Highest Similarity
+# ----------------------------------
+def highest_similarity(sentence, webpage):
+
+    web_sentences = split_sentences(webpage)
+
+    best = 0
+
+    for web_sentence in web_sentences:
+
+        if len(web_sentence.split()) < 4:
+            continue
+
+        try:
+            tfidf = TfidfVectorizer().fit_transform(
+                [sentence, web_sentence]
+            )
+
+            score = cosine_similarity(
+                tfidf[0:1],
+                tfidf[1:2]
+            )[0][0]
+
+            best = max(best, score)
+
+        except:
+            pass
+
+    return best
+
+
+# ----------------------------------
+# Main Program
+# ----------------------------------
+print("=" * 60)
+print("        ONLINE PLAGIARISM DETECTOR")
+print("=" * 60)
+
+paragraph = input("\nPaste a paragraph:\n\n")
+
+sentences = split_sentences(paragraph)
+
+if not sentences:
+    print("\nNo valid sentences found.")
+    exit()
+
+hits = 0
+
+print("\nSearching Online...\n")
+
+for i, sentence in enumerate(sentences, start=1):
+
+    print("=" * 60)
+    print(f"Sentence {i}")
+    print(sentence)
+
+    query = build_query(sentence)
+
+    print("\nSearch Query:")
+    print(query)
+
+    url = search_web(query)
+
+    if not url:
+        print("\nNo search result found.")
+        continue
+
+    print("\nTop Result:")
+    print(url)
+
+    webpage = fetch_text(url)
+
+    if not webpage:
+        print("Unable to fetch webpage.")
+        continue
+
+    similarity = highest_similarity(sentence, webpage)
+
+    print(f"\nSimilarity: {similarity*100:.2f}%")
+
+    if similarity >= 0.50:
+        print("Possible Plagiarism Detected!")
+        hits += 1
+    else:
+        print("No Significant Plagiarism.")
+
+    time.sleep(2)
+
+# ----------------------------------
+# Final Result
+# ----------------------------------
+print("\n" + "=" * 60)
+
+percentage = (hits / len(sentences)) * 100
+
+print(f"Estimated Plagiarism: {percentage:.2f}%")
+print("=" * 60)
+
+_____________________________________________________________________________________________
+
+Prac 10 (Sentiment Analysis and Visualisation)
+
+Code:
+
+# Install required libraries (Run once)
+# pip install textblob matplotlib
+# python -m textblob.download_corpora
+
+from textblob import TextBlob
+import matplotlib.pyplot as plt
+
+# -------------------------------
+# Sample Customer Reviews
+# -------------------------------
+reviews = [
+    "The product is amazing and works perfectly.",
+    "Excellent quality! I am very happy with my purchase.",
+    "The service was terrible and very slow.",
+    "I am disappointed with the product.",
+    "The item is okay, nothing special.",
+    "Fantastic experience. Highly recommended!",
+    "Very bad packaging and poor quality.",
+    "The delivery was quick and the product is good."
+]
+
+# -------------------------------
+# Counters
+# -------------------------------
+positive = 0
+negative = 0
+neutral = 0
+
+print("=" * 60)
+print("      CUSTOMER REVIEW SENTIMENT ANALYSIS")
+print("=" * 60)
+
+# -------------------------------
+# Sentiment Analysis
+# -------------------------------
+for review in reviews:
+
+    analysis = TextBlob(review)
+    polarity = analysis.sentiment.polarity
+
+    if polarity > 0:
+        sentiment = "Positive"
+        positive += 1
+
+    elif polarity < 0:
+        sentiment = "Negative"
+        negative += 1
+
+    else:
+        sentiment = "Neutral"
+        neutral += 1
+
+    print("\nReview    :", review)
+    print("Sentiment :", sentiment)
+    print("Polarity  :", round(polarity, 2))
+    print("-" * 60)
+
+# -------------------------------
+# Summary
+# -------------------------------
+print("\n" + "=" * 60)
+print("SUMMARY")
+print("=" * 60)
+
+print("Positive Reviews :", positive)
+print("Negative Reviews :", negative)
+print("Neutral Reviews  :", neutral)
+
+# -------------------------------
+# Visualization
+# -------------------------------
+labels = ["Positive", "Negative", "Neutral"]
+counts = [positive, negative, neutral]
+
+plt.figure(figsize=(6, 4))
+plt.bar(labels, counts)
+
+plt.title("Customer Review Sentiment Analysis")
+plt.xlabel("Sentiment")
+plt.ylabel("Number of Reviews")
+
+plt.show()
+
